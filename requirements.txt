@@ -1,0 +1,4 @@
+pytorch==1.12.1
+cudatoolkit==11.6.0
+torchvision==0.13.1
+tqdm
