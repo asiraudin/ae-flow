@@ -10,8 +10,8 @@ Article : https://openreview.net/forum?id=9OmCr1q54Z
 
 La classe AEFlow dataset prend en charge le prétraitement des données
 - les datasets doivent être placés dans le folder "data" avec la structure suivante
-
-data
+```
+data .
     ├── mydataset                   # e.g chest_xray
         ├── raw                     # Données brutes
             ├── test                # Données de test
@@ -20,7 +20,7 @@ data
             └── train               # Données de train
                 └── NORMAL              # Images normales
     └── datasets.py
-
+```
 - Lorsque la classe AEFlow est instanciée, elle vérifie si les fichiers prétraités existe. Si non, elle réalise
 le prétraitement, puis place les fichiers dans un dossier processed. Il y a 5 fichiers prétraités : 3 tenseurs
 contenant les images de train et test (normales + anormales) + 2 tenseurs de labels pour les images de test.
