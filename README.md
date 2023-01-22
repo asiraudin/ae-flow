@@ -24,7 +24,7 @@ data .
 - Lorsque la classe AEFlow est instanciée, elle vérifie si les fichiers prétraités existe. Si non, elle réalise
 le prétraitement, puis place les fichiers dans un dossier processed. Il y a 5 fichiers prétraités : 3 tenseurs
 contenant les images de train et test (normales + anormales) + 2 tenseurs de labels pour les images de test.
-
+```
 data
     ├── mydataset                   # e.g chest_xray
         ├── raw                     # Données brutes
@@ -35,6 +35,7 @@ data
             ├── test_NORMAL_labels.pt
             └── train_NORMAL.pt
     └── datasets.py
+```
 
 - Le stockage des données prétraitées permet de stocker les images de manière compact (256 x 256) + d'éviter d'avoir
 à process le dataset à chaque fois (certains sont volumineux)
