@@ -3,7 +3,7 @@ from typing import Any
 import torch
 import torch.nn as nn
 from torchvision.datasets import VisionDataset
-from torchvision.transforms.functional import to_tensor
+from torchvision import transforms
 import os
 import os.path as osp
 from PIL import Image
@@ -16,15 +16,19 @@ class AEFlowDataset(VisionDataset):
 
     def __getitem__(self, index: int) -> Any:
         if self.train:
-            label = None
+            label = 0
         else:
             label = self.labels[index]
 
-        return self.images[index], label
+        img = self.images[index]
+        img = img.expand(3, -1, -1)
+        if self.transform is not None:
+            img = self.transform(img)
+        return img, label
 
-    def __init__(self, root, train, pre_transform=None, tranforms=None, transform=None, target_transform=None):
-        super().__init__(root, tranforms, transform, target_transform)
-        self.pre_transform = pre_transform
+    def __init__(self, root, train, transform=None):
+        super().__init__(root, transform)
+        self.pre_transform = transforms.Compose([transforms.Resize((256, 256)), transforms.ToTensor()])
         self._process()
         self.train = train
 
@@ -55,7 +59,7 @@ class AEFlowDataset(VisionDataset):
 
     @property
     def processed_names(self):
-        files_names = ["train_NORMAL", "test_NORMAL.pt", "test_ANOMALY.pt",
+        files_names = ["train_NORMAL.pt", "test_NORMAL.pt", "test_ANOMALY.pt",
                        "test_NORMAL_labels.pt", "test_ANOMALY_labels.pt"]
         return [osp.join(self.processed_dir, name) for name in files_names]
 
@@ -78,13 +82,13 @@ class AEFlowDataset(VisionDataset):
 
         :return: None
         """
-        data_list = []
         for i, folder in enumerate(self.raw_folders):
+            data_list = []
+            print(f"Processing {folder}")
             for f in tqdm(os.listdir(folder)):
                 img = Image.open(osp.join(folder, f))
                 if self.pre_transform is not None:
                     img = self.pre_transform(img)
-                    img = to_tensor(img)
                 data_list.append(img.unsqueeze(0))
             torch.save(torch.cat(data_list, dim=0), self.processed_names[i])
             if i == 1:
@@ -98,4 +102,3 @@ def folderandfiles_exist(folder, files):
            and len(files) != 0 \
            and all([osp.exists(f) for f in files]) \
            and osp.exists(folder)
-
