@@ -1,5 +1,21 @@
 import torch
 import torch.nn as nn
+from torchvision.models import wide_resnet50_2 as wide_resnet
+from FrEIA.framework import SequenceINN
+from FrEIA.modules import AllInOneBlock
+
+
+class Encoder(nn.Module):
+    def __init__(self):
+        super().__init__()
+        resnet = wide_resnet(pretrained=True)
+        resnet_modules = list(resnet.children())[:-3]
+        self.encoder = nn.Sequential(*resnet_modules)
+        for p in self.encoder.parameters():
+            p.requires_grad = False
+
+    def forward(self, x):
+        return self.encoder(x)
 
 
 def get_upscaling_block(channels_in, channels_out, last_layer=False):
@@ -40,3 +56,31 @@ class Decoder(nn.Module):
 
     def forward(self, x):
         return self.decoder(x)
+
+
+class Flow(nn.Module):
+    def __init__(self, channels, dims_in, n_blocks):
+        super().__init__()
+
+        self.inn = SequenceINN(channels, *dims_in)
+        for i in range(n_blocks):
+            self.inn.append(AllInOneBlock, subnet_constructor=self.build_flow_subnet)
+
+    def forward(self, x, rev=False):
+        """
+        Output latent variable + log jacobian determinant. If rev = True, use flow in backward mode.
+
+        :param x: input data
+        :param rev: bool - whether or not to use the flow in backward mode
+        :return: torch.tensor, float
+        """
+        out, jac = self.inn(x, rev=rev)
+        return out, jac
+
+    @staticmethod
+    def build_flow_subnet():
+        """
+        Static method that build the subnet used in flow block.
+        :return: nn.Sequential
+        """
+        return None

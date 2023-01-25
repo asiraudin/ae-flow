@@ -1,13 +1,11 @@
 import torch.nn as nn
-from torchvision.models import wide_resnet50_2 as wide_resnet
-from .components import Decoder
+from .components import Decoder, Encoder
 
 
 class AEFlow(nn.Module):
     def __init__(self):
         super().__init__()
-        self.encoder = None
-        self.setup_encoder()
+        self.encoder = Encoder()
         self.decoder = Decoder()
 
     def forward(self, x):
@@ -15,9 +13,4 @@ class AEFlow(nn.Module):
         x = self.decoder(x)
         return x
 
-    def setup_encoder(self):
-        resnet = wide_resnet(pretrained=True)
-        resnet_modules = list(resnet.children())[:-3]
-        self.encoder = nn.Sequential(*resnet_modules)
-        for p in self.encoder.parameters():
-            p.requires_grad = False
+
