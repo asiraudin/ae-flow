@@ -58,13 +58,28 @@ class Decoder(nn.Module):
         return self.decoder(x)
 
 
+def build_fast_flow(channels_in, channels_out):
+    pass
+
+
+def build_res_net(channels_in, channels_out):
+    pass
+
+
 class Flow(nn.Module):
-    def __init__(self, channels, dims_in, n_blocks):
+    def __init__(self, channels, dims_in, n_blocks, subnet_type="fast_flow"):
         super().__init__()
+
+        if subnet_type == "fast_flow":
+            subnet_constructor = build_fast_flow
+        elif subnet_type == "res_net":
+            subnet_constructor = build_res_net
+        else:
+            raise NotImplementedError
 
         self.inn = SequenceINN(channels, *dims_in)
         for i in range(n_blocks):
-            self.inn.append(AllInOneBlock, subnet_constructor=self.build_flow_subnet)
+            self.inn.append(AllInOneBlock, subnet_constructor=subnet_constructor)
 
     def forward(self, x, rev=False):
         """
@@ -76,11 +91,3 @@ class Flow(nn.Module):
         """
         out, jac = self.inn(x, rev=rev)
         return out, jac
-
-    @staticmethod
-    def build_flow_subnet():
-        """
-        Static method that build the subnet used in flow block.
-        :return: nn.Sequential
-        """
-        return None
