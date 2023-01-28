@@ -71,7 +71,8 @@ class AEFlowDataset(VisionDataset):
         if folderandfiles_exist(self.processed_dir, self.processed_names):
             return
 
-        os.makedirs(self.processed_dir)
+        if self.processed_dir is None:
+            os.makedirs(self.processed_dir)
         self.process()
         print("Images pre-transformed !")
 

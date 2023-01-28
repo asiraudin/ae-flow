@@ -1,1 +1,4 @@
 /configs
+/src/data
+.pyc
+*/__pycache__
