@@ -4,7 +4,6 @@ from utils import plotBatch
 from torch.utils.data import DataLoader
 from matplotlib import pyplot as plt
 
-
 # Load datasets
 root = '/home/manuel/ae-flow/src/data/chest_xray'
 train_dataset = AEFlowDataset(root, train = True, transform=None)
@@ -37,8 +36,8 @@ for epoch in range(NB_ITERATIONS):
         
         pred = aeflow(x)
         plotBatch(x)
-        loss = criterion(pred, y)
-        loss_t += loss
+        l_recon = criterion(pred, x)
+        l_flow = 
        
         loss.backward()
         optim.step()
