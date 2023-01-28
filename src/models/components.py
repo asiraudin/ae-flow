@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
-from torchvision.models import wide_resnet50_2 as wide_resnet
+from torch.distributions import Normal, Independent
+from torchvision.models import wide_resnet50_2 as wide_resnet, Wide_ResNet50_2_Weights
 from FrEIA.framework import SequenceINN
 from FrEIA.modules import AllInOneBlock
 
@@ -8,7 +9,7 @@ from FrEIA.modules import AllInOneBlock
 class Encoder(nn.Module):
     def __init__(self):
         super().__init__()
-        resnet = wide_resnet(pretrained=True)
+        resnet = wide_resnet(weights=Wide_ResNet50_2_Weights.DEFAULT)
         resnet_modules = list(resnet.children())[:-3]
         self.encoder = nn.Sequential(*resnet_modules)
         for p in self.encoder.parameters():
@@ -59,7 +60,11 @@ class Decoder(nn.Module):
 
 
 def build_fast_flow(channels_in, channels_out):
-    pass
+    return nn.Sequential(
+        nn.Conv2d(channels_in, channels_in, (3, 3), padding="same"),
+        nn.ReLU(),
+        nn.Conv2d(channels_in, channels_out, (1, 1), padding="same"),
+        )
 
 
 def build_res_net(channels_in, channels_out):
@@ -80,6 +85,8 @@ class Flow(nn.Module):
         self.inn = SequenceINN(channels, *dims_in)
         for i in range(n_blocks):
             self.inn.append(AllInOneBlock, subnet_constructor=subnet_constructor)
+        self.prior = Independent(Normal(torch.zeros(channels*dims_in[0]*dims_in[1]),
+                                        torch.ones(channels*dims_in[0]*dims_in[1])), 1)
 
     def forward(self, x, rev=False):
         """
@@ -89,5 +96,6 @@ class Flow(nn.Module):
         :param rev: bool - whether or not to use the flow in backward mode
         :return: torch.tensor, float
         """
-        out, jac = self.inn(x, rev=rev)
-        return out, jac
+        z, jac = self.inn(x, rev=rev)
+        logprob_z = self.prior.log_prob(z.flatten(start_dim=1))
+        return z, logprob_z, jac
