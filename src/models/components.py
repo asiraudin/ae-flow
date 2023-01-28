@@ -3,6 +3,8 @@ import torch.nn as nn
 from torchvision.models import wide_resnet50_2 as wide_resnet
 from FrEIA.framework import SequenceINN
 from FrEIA.modules import AllInOneBlock
+from FrEIA import aeuronet
+from FrEIA import pyrnet
 
 
 class Encoder(nn.Module):
@@ -63,7 +65,7 @@ def build_fast_flow(channels_in, channels_out):
 
 
 def build_res_net(channels_in, channels_out):
-    pass
+    return ResNetBlock(channels_in, channels_out)
 
 
 class Flow(nn.Module):
@@ -91,3 +93,31 @@ class Flow(nn.Module):
         """
         out, jac = self.inn(x, rev=rev)
         return out, jac
+
+
+
+class ResNetBlock(nn.Module):
+    def __init__(self, channels_in, channels_out):
+        super(ResNetBlock, self).__init__()
+        self.net = nn.Sequential(
+            nn.Conv2d(channels_in, channels_out, kernel_size=3, stride=1, padding=1, bias=False),
+            torch.nn.BatchNorm2d(num_features=channels_out),
+        )
+        self.shortcut = nn.Sequential()
+        if channels_in != channels_out:
+            self.shortcut = nn.Sequential(
+                nn.Conv2d(channels_in, channels_out, kernel_size=1, stride=1, bias=False),
+                nn.BatchNorm2d(channels_out)
+            )
+        self.log_s = nn.Linear(channels_in, channels_out)
+        self.t = nn.Linear(channels_in, channels_out)
+            
+
+    def forward(self, x):
+        out = self.net(x)
+        out += self.shortcut(x)
+        z = nn.ReLU(inplace=True)(out)
+        s = self.log_s(z)
+        t = self.t(z)
+        
+        return s, t
