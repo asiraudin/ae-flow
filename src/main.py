@@ -1,45 +1,72 @@
-from data.datasets import *
-from models.aeflow import *
-from utils import plotBatch, loss_function
+import torch
+import torch.nn.functional as F
+
+from data.datasets import AEFlowDataset
+from torchvision import transforms
 from torch.utils.data import DataLoader
-from matplotlib import pyplot as plt
+from models import AEFlow
+from torchmetrics.functional import structural_similarity_index_measure as ssim
+from utils import plotBatch, loss_function
 
-# Load datasets
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+device = "cpu"
 root = '/home/manuel/ae-flow/src/data/chest_xray'
-train_dataset = AEFlowDataset(root, train = True, transform=None)
-test_dataset = AEFlowDataset(root, train = False, transform=None)
+#root = "./data/chest_xray"
+batch_size = 9
+epochs = 10
 
-train_dataloader = DataLoader(train_dataset, batch_size=16, shuffle=True)
-test_dataloader = DataLoader(test_dataset, batch_size=16, shuffle=True)
+dataset = AEFlowDataset(root=root, train=True,
+                        transform=transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]))
+test_dataset = AEFlowDataset(root=root, train=False,
+                        transform=transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]))
+dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
 
-device = 'cpu'
+model = AEFlow('fast_flow', device)
+#model = AEFlow('res_net', device)
+optimizer = torch.optim.Adam(model.parameters())
+alpha = 0.5
+beta = 0.9
 
-#aeflow = AEFlow('fast_flow', device )
-aeflow = AEFlow('res_net', device )
-
-
-criterion = nn.MSELoss()
-optim = torch.optim.Adam(aeflow.parameters())
-NB_ITERATIONS = 10
-
-for epoch in range(NB_ITERATIONS): 
-    a = 0
-    alpha = 0.5
-    loss_t = 0
-    for x,y in train_dataloader:
-        optim.zero_grad()
-        x = x.to(device).requires_grad_()
-        y = y.to(device)
-    
-        
+for epoch in range(epochs):
+    model.train()
+    epoch_loss = 0.0
+    it = 0.0
+    for i, (x, _) in enumerate(dataloader):
+        if i > 10:
+            break
+        optimizer.zero_grad()
+        x = x.to(device)
+        y, log_prob, logdet_jac = model(x)
         #x_recon, log_prob, jac = torch.utils.checkpoint.checkpoint(aeflow, x)
-        x_recon, log_prob, jac = aeflow(x)
-        loss = loss_function(x, x_recon, log_prob.mean(), jac.mean(), alpha = 1/2,SSIM = False)
-       
+        loss = loss_function(x, y, log_prob.mean(), logdet_jac.mean(), alpha = 1/2,SSIM = False)
+        epoch_loss += loss.item()
+
+        loss = loss.mean()
         loss.backward()
-        optim.step()
-        a += 1
-        
-        print(f"Itérations {epoch}, a = {a}: loss {loss}")
-        if a % 10 == 0:
-            plotBatch(x_recon)
+        optimizer.step()
+        it += 1
+        print(f"Train: epoch {epoch}, iteration: {it} train loss = {loss},")
+    plotBatch(y)
+    if epoch % 2 == 0:
+        model.eval()
+        test_epoch_loss = 0
+        epoch_anomaly_score = 0
+        for i, (x, _) in enumerate(test_dataloader):
+            if i > 10:
+                break
+            x = x.to(device)
+            y, log_prob, logdet_jac = model(x)
+
+            loss = loss_function(x, y, log_prob.mean(), logdet_jac.mean(), alpha = 1/2,SSIM = False)
+            epoch_loss += loss.item()
+
+            anomaly_score = beta * (-torch.exp(log_prob).sum()) + (1 - beta) * ssim(y, x, reduction='sum')
+            epoch_anomaly_score += anomaly_score
+
+        print(f"Test: epoch {epoch}, test loss = {test_epoch_loss/len(test_dataset)},"
+              f" score  = {epoch_anomaly_score/len(test_dataset)}")
+    print(f"Train: epoch {epoch}, test loss = {epoch_loss/len(dataset)}")
+
+            

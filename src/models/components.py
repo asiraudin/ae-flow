@@ -4,8 +4,6 @@ from torch.distributions import Normal, Independent
 from torchvision.models import wide_resnet50_2 as wide_resnet, Wide_ResNet50_2_Weights
 from FrEIA.framework import SequenceINN
 from FrEIA.modules import AllInOneBlock
-from FrEIA import aeuronet
-from FrEIA import pyrnet
 
 
 class Encoder(nn.Module):

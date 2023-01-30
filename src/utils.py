@@ -20,7 +20,7 @@ def plotBatch(batch):
     fig = plt.figure()
     for i in range(batch_size):
         img = batch[i].cpu().detach().numpy().T
-        img = (img-min(img))/(max(img)-min(img))
+        img = (img - np.min(img))/(np.max(img)-np.min(img))
         fig.add_subplot(rows, columns, i+1)
         plt.imshow(img)
     plt.show()
