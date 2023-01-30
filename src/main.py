@@ -1,6 +1,6 @@
 from data.datasets import *
 from models.aeflow import *
-from utils import plotBatch
+from utils import plotBatch, loss_function
 from torch.utils.data import DataLoader
 from matplotlib import pyplot as plt
 
@@ -12,12 +12,10 @@ test_dataset = AEFlowDataset(root, train = False, transform=None)
 train_dataloader = DataLoader(train_dataset, batch_size=16, shuffle=True)
 test_dataloader = DataLoader(test_dataset, batch_size=16, shuffle=True)
 
-channels = 3
-im_size = [256, 256]
-device = 'cuda'
+device = 'cpu'
 
-aeflow = AEFlow(channels, im_size, 'res_net').to(device)
-
+#aeflow = AEFlow('fast_flow', device )
+aeflow = AEFlow('res_net', device )
 
 
 criterion = nn.MSELoss()
@@ -26,21 +24,22 @@ NB_ITERATIONS = 10
 
 for epoch in range(NB_ITERATIONS): 
     a = 0
+    alpha = 0.5
     loss_t = 0
     for x,y in train_dataloader:
-        x = x.to(device)
-        #y = np.random.randint(0,2)
-        y = torch.tensor(y).to(device)
-    
         optim.zero_grad()
+        x = x.to(device).requires_grad_()
+        y = y.to(device)
+    
         
-        pred = aeflow(x)
-        plotBatch(x)
-        l_recon = criterion(pred, x)
-        l_flow = 
+        #x_recon, log_prob, jac = torch.utils.checkpoint.checkpoint(aeflow, x)
+        x_recon, log_prob, jac = aeflow(x)
+        loss = loss_function(x, x_recon, log_prob.mean(), jac.mean(), alpha = 1/2,SSIM = False)
        
         loss.backward()
         optim.step()
+        a += 1
         
-        if a%20 == 0:
-            print(f"Itérations {epoch}: loss {loss_t/a}")
+        print(f"Itérations {epoch}, a = {a}: loss {loss}")
+        if a % 10 == 0:
+            plotBatch(x_recon)

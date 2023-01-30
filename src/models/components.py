@@ -4,8 +4,6 @@ from torch.distributions import Normal, Independent
 from torchvision.models import wide_resnet50_2 as wide_resnet, Wide_ResNet50_2_Weights
 from FrEIA.framework import SequenceINN
 from FrEIA.modules import AllInOneBlock
-from FrEIA import aeuronet
-from FrEIA import pyrnet
 
 
 class Encoder(nn.Module):
@@ -70,11 +68,40 @@ def build_fast_flow(channels_in, channels_out):
 
 
 def build_res_net(channels_in, channels_out):
-    return ResNetBlock(channels_in, channels_out)
+    return ResNet(channels_in, channels_out)
 
 
+
+class ResNet(nn.Module):
+    def __init__(self, channels_in, channels_out):
+        super(ResNet, self).__init__()
+        self.layers = nn.Sequential(
+            nn.Conv2d(channels_in, channels_out, (3, 3), padding="same", bias=False),
+            nn.BatchNorm2d(num_features=channels_out),
+            nn.ReLU(),
+            nn.Conv2d(channels_out, channels_out, (3, 3), padding="same", bias=False),
+            nn.BatchNorm2d(num_features=channels_out)
+            )
+        
+        if channels_in != channels_out:
+            self.shortcut = nn.Sequential(
+                nn.Conv2d(channels_in, channels_out, (1, 1), bias=False),
+                nn.BatchNorm2d(channels_out)
+            )
+        else:
+            self.shortcut = nn.Identity()
+        self.relu = nn.ReLU()
+        
+    def forward(self, x):
+        out = self.layers(x)
+        out = out + self.shortcut(x)
+        #out = nn.functional.relu(out)
+        return out
+        
+        
+        
 class Flow(nn.Module):
-    def __init__(self, channels, dims_in, n_blocks, subnet_type="fast_flow"):
+    def __init__(self, channels, dims_in, n_blocks, subnet_type="fast_flow", device = 'cpu'):
         super().__init__()
 
         if subnet_type == "fast_flow":
@@ -87,8 +114,8 @@ class Flow(nn.Module):
         self.inn = SequenceINN(channels, *dims_in)
         for i in range(n_blocks):
             self.inn.append(AllInOneBlock, subnet_constructor=subnet_constructor)
-        self.prior = Independent(Normal(torch.zeros(channels*dims_in[0]*dims_in[1]),
-                                        torch.ones(channels*dims_in[0]*dims_in[1])), 1)
+        self.prior = Independent(Normal(torch.zeros(channels*dims_in[0]*dims_in[1]).to(device),
+                                        torch.ones(channels*dims_in[0]*dims_in[1]).to(device)), 1)
 
     def forward(self, x, rev=False):
         """

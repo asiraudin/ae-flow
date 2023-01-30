@@ -6,27 +6,25 @@ class AE(nn.Module):
     def __init__(self):
         super().__init__()
         self.encoder = Encoder()
-        self.flow = Flow(1024, (16, 16), 8)
         self.decoder = Decoder()
 
     def forward(self, x):
         x = self.encoder(x)
-        x, log_prob, jac = self.flow(x)
         x = self.decoder(x)
-        return x, log_prob, jac
+        return x
 
 
 
 class AEFlow(nn.Module):
-    def __init__(self, channels, dims_in, subnet_type):
+    def __init__(self, subnet_type, device = 'cpu'):
         super().__init__()
-        self.encoder = Encoder()
-        self.flow = Flow(channels= 1024, dims_in= [16, 16], n_blocks= 1, subnet_type=subnet_type)
-        self.decoder = Decoder()
+        self.encoder = Encoder().to(device)
+        self.flow = Flow(channels= 1024, dims_in= (16, 16), n_blocks= 8, subnet_type=subnet_type, device = device).to(device)
+        self.decoder = Decoder().to(device)
 
     def forward(self, x):
         x = self.encoder(x)
-        x, _ = self.flow(x)
-        x = self.decoder(x)
-        return x
+        out, log_prob, jac = self.flow(x)
+        out = self.decoder(out)
+        return out, log_prob, jac
 
