@@ -90,12 +90,10 @@ class ResNet(nn.Module):
             )
         else:
             self.shortcut = nn.Identity()
-        self.relu = nn.ReLU()
         
     def forward(self, x):
         out = self.layers(x)
         out = out + self.shortcut(x)
-        #out = nn.functional.relu(out)
         return out
         
         
