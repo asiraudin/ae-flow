@@ -10,13 +10,14 @@ from torchmetrics.functional import structural_similarity_index_measure as ssim
 from utils import plotBatch, loss_function, compute_accuracies, CustomLogger
 from datetime import datetime
 from torch import nn
+from tqdm import tqdm
 
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 #device = "cpu"
 root = '/home/manuel/ae-flow/src/data/chest_xray'
 #root = "./data/chest_xray"
-batch_size = 16
+batch_size = 4
 epochs = 100
 
 dataset = AEFlowDataset(root=root, train=True,
@@ -35,6 +36,7 @@ beta = 0.9
 global_train_step = 0
 global_test_step = 0
 log_frequency = 10
+
 logger = CustomLogger(root + '/runs/' + model_name + '/' + datetime.now().strftime("%Y%m%d-%H%M%S"))
 
 thresholds = np.array([0.0001, 0.001,0.01,0.1, 0.2, 0.3])
@@ -45,7 +47,10 @@ PATH = "/home/manuel/ae-flow/src/data/chest_xray/trained-model-rev.pch"
 for epoch in range(epochs):
     model.train()
     epoch_loss = 0.0
-    for i, (x, y) in enumerate(dataloader):
+    epoch_anomaly = 0.0
+    j = 0
+    for i, (x, y) in tqdm(enumerate(dataloader)):
+        j+=1
         optimizer.zero_grad()
         x = x.to(device)
         x_prim, log_prob, logdet_jac = model(x)
@@ -60,9 +65,10 @@ for epoch in range(epochs):
         loss.backward()
         optimizer.step()
         global_train_step += 1
-        anomaly_score = beta * (-torch.exp(log_prob/ (np.log(2) *262144)).mean()) + (1 - beta) * - ssim(x.detach(), x_prim.detach(), reduction='sum')
+        anomaly_score = beta * (-torch.exp(log_prob).mean()) + (1 - beta) * - ssim(x.detach(), x_prim.detach(), reduction='sum')
+        epoch_anomaly += anomaly_score.item()
         
-        print(f"Train: epoch {epoch}, iteration: {global_train_step}, anomaly_score : {anomaly_score.item()} train loss = {loss.item()},")
+        #print(f"Train: epoch {epoch}, iteration: {global_train_step}, anomaly_score : {anomaly_score.item()} train loss = {loss.item()},")
         if global_train_step % log_frequency == 0:
             residual = x - x_prim
             logger.log_all(global_train_step, loss.item() , anomaly_score.item(), x.detach(), x_prim.detach(), residual, mode = 'train')
@@ -71,40 +77,38 @@ for epoch in range(epochs):
             logger.logger.add_scalar('l_recon' , l_recon, global_step=global_train_step)
             logger.logger.add_scalar('l_flow' , l_flow, global_step=global_train_step)
         torch.cuda.empty_cache() 
+    print(f"Train: epoch {epoch}, anomaly_score : {epoch_anomaly/j} train loss = {epoch_loss/j},")
     
     accs = np.zeros_like(thresholds)
-    """
-    if epoch % 10 == 0:
-        model.eval()
-        test_epoch_loss = 0
-        epoch_anomaly_score = 0
-        for i, (x, y) in enumerate(test_dataloader):
-            if i > 10:
-                break
+
+    model.eval()
+    
+    test_epoch_loss = 0
+    epoch_anomaly_score = 0
+    scores1 = 0.
+    scores0 = 0.
+    y1 = 0.
+    y0 = 0.
+    for i, (x, y) in enumerate(test_dataloader):
+        with torch.no_grad():
             x = x.to(device)
             y = y.to(device)
             x_prim, log_prob, logdet_jac = model(x)
 
-            loss = loss_function(x, y, log_prob.mean(), logdet_jac.mean(), alpha = 1/2,ssim = False)
-            epoch_loss += loss.item()
-
-            anomaly_score = beta * (-torch.exp(log_prob).sum()) + (1 - beta) * -ssim(x_prim, x, reduction='sum')
+            anomaly_score = beta * (-torch.exp(log_prob/ (np.log(2) *262144)).mean()) + (1 - beta) * - ssim(x.detach(), x_prim.detach(), reduction='sum')
             epoch_anomaly_score += anomaly_score
-            global_test_step += 1
+            if y == 1:
+                scores1 += anomaly_score
+                y1  +=1
+            else:
+                scores0 += anomaly_score
+                y0 += 1
             
-            labels, acc = compute_accuracies(thresholds, anomaly_score, y)
-            accs += acc
-            
-            print(f"Test: epoch {epoch}, iteration: {global_test_step} train loss = {loss}, anomaly score= {anomaly_score}, y = {y} accs = {accs/i}")
-             
-            if global_test_step % log_frequency == 0:
-                residual = x - x_prim
-                logger.log_all(global_test_step, loss.item() , anomaly_score.item(), x.detach(), x_prim.detach(), residual, mode = 'test')
-                logger.log_accuracy(accs/i, thresholds, global_test_step)
-            torch.cuda.empty_cache()
-            
-        print(f"Test: epoch {epoch}, test loss = {test_epoch_loss/len(test_dataset)},"
-              f" score  = {epoch_anomaly_score/len(test_dataset)}")
-    print(f"Train: epoch {epoch}, test loss = {epoch_loss/len(dataset)}")"""
+        #labels, acc = compute_accuracies(thresholds, anomaly_score, y)
+        #accs += acc
+        
+        torch.cuda.empty_cache()
+    print(f'epoch : {epoch}, scores1 : {scores1/y1} y1 = {y1}')
+    print(f'epoch : {epoch}, scores0 : {scores0/y0} y0 = {y0}')
     torch.save(model.state_dict(), PATH)
             
