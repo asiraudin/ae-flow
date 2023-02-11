@@ -19,7 +19,7 @@ root = '/home/manuel/ae-flow/src/data/chest_xray'
 root = '/Vrac/chest_xray'
 
 #root = "./data/chest_xray"
-batch_size = 12
+batch_size = 36
 epochs = 100
 
 dataset = AEFlowDataset(root=root, train=True,
@@ -29,8 +29,8 @@ test_dataset = AEFlowDataset(root=root, train=False,
 dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=True)
 
-#model_name = 'fast_flow'
-model_name = 'res_net'
+model_name = 'fast_flow'
+#model_name = 'res_net'
 model = AEFlow(model_name, device)
 optimizer = torch.optim.Adam(model.parameters())
 alpha = 0.5
