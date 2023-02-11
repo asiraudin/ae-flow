@@ -16,7 +16,7 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 root = '/home/manuel/ae-flow/src/data/chest_xray'
 #root = "./data/chest_xray"
 batch_size = 16
-epochs = 1000
+epochs = 100
 
 dataset = AEFlowDataset(root=root, train=True,
                         transform=transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]))
@@ -39,7 +39,7 @@ logger = CustomLogger(root + '/runs/' + model_name + '/' + datetime.now().strfti
 thresholds = np.array([0.0001, 0.001,0.01,0.1, 0.2, 0.3])
 PATH = "/home/manuel/ae-flow/src/data/chest_xray/trained-model.pch"
 
-model.load_state_dict(torch.load(PATH))
+#model.load_state_dict(torch.load(PATH))
 
 for epoch in range(epochs):
     model.train()
@@ -51,7 +51,7 @@ for epoch in range(epochs):
         x = x.to(device)
         x_prim, log_prob, logdet_jac = model(x)
         #y, log_prob, logdet_jac = torch.utils.checkpoint.checkpoint(model, x)
-        loss = loss_function(x, x_prim, log_prob.mean(), logdet_jac.mean(), alpha = 1/2,SSIM = False)
+        loss = loss_function(x, x_prim, log_prob.mean(), logdet_jac.mean(), alpha = 1/2,ssim = False)
         epoch_loss += loss.item()
 
         loss = loss.mean()
@@ -77,7 +77,7 @@ for epoch in range(epochs):
             x = x.to(device)
             x_prim, log_prob, logdet_jac = model(x)
 
-            loss = loss_function(x, y, log_prob.mean(), logdet_jac.mean(), alpha = 1/2,SSIM = False)
+            loss = loss_function(x, y, log_prob.mean(), logdet_jac.mean(), alpha = 1/2,ssim = False)
             epoch_loss += loss.item()
 
             anomaly_score = beta * (-torch.exp(log_prob).sum()) + (1 - beta) * -ssim(x_prim, x, reduction='sum')
