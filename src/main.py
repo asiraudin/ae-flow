@@ -9,6 +9,7 @@ from models import AEFlow
 from torchmetrics.functional import structural_similarity_index_measure as ssim
 from utils import plotBatch, loss_function, compute_accuracies, CustomLogger
 from datetime import datetime
+from torch import nn
 
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -30,14 +31,14 @@ model_name = 'fast_flow'
 model = AEFlow(model_name, device)
 optimizer = torch.optim.Adam(model.parameters())
 alpha = 0.5
-beta = 0.9
+beta = 0.9  
 global_train_step = 0
 global_test_step = 0
 log_frequency = 10
 logger = CustomLogger(root + '/runs/' + model_name + '/' + datetime.now().strftime("%Y%m%d-%H%M%S"))
 
 thresholds = np.array([0.0001, 0.001,0.01,0.1, 0.2, 0.3])
-PATH = "/home/manuel/ae-flow/src/data/chest_xray/trained-model.pch"
+PATH = "/home/manuel/ae-flow/src/data/chest_xray/trained-model-rev.pch"
 
 #model.load_state_dict(torch.load(PATH))
 
@@ -45,36 +46,43 @@ for epoch in range(epochs):
     model.train()
     epoch_loss = 0.0
     for i, (x, y) in enumerate(dataloader):
-        if i > 10:
-            break
         optimizer.zero_grad()
         x = x.to(device)
         x_prim, log_prob, logdet_jac = model(x)
         #y, log_prob, logdet_jac = torch.utils.checkpoint.checkpoint(model, x)
-        loss = loss_function(x, x_prim, log_prob.mean(), logdet_jac.mean(), alpha = 1/2,ssim = False)
+        #loss = loss_function(x, x_prim, log_prob.mean(), logdet_jac.mean(), alpha = 1/2,ssim = False)
+        l_recon = (1-alpha)*nn.functional.mse_loss(x,x_prim)
+        l_flow = alpha*(-log_prob.mean() / (np.log(2) *262144) - logdet_jac.mean() / (np.log(2) *262144))
+        loss = l_recon + l_flow
         epoch_loss += loss.item()
 
         loss = loss.mean()
         loss.backward()
         optimizer.step()
         global_train_step += 1
-        anomaly_score = beta * (-torch.exp(log_prob).mean()) + (1 - beta) * -ssim(x_prim, x, reduction='elementwise_mean')
+        anomaly_score = beta * (-torch.exp(log_prob/ (np.log(2) *262144)).mean()) + (1 - beta) * - ssim(x.detach(), x_prim.detach(), reduction='sum')
+        
         print(f"Train: epoch {epoch}, iteration: {global_train_step}, anomaly_score : {anomaly_score.item()} train loss = {loss.item()},")
         if global_train_step % log_frequency == 0:
             residual = x - x_prim
             logger.log_all(global_train_step, loss.item() , anomaly_score.item(), x.detach(), x_prim.detach(), residual, mode = 'train')
+            logger.logger.add_scalar('log_prob' , log_prob.mean(), global_step=global_train_step)
+            logger.logger.add_scalar('logdet_jac', logdet_jac.mean(), global_step=global_train_step)
+            logger.logger.add_scalar('l_recon' , l_recon, global_step=global_train_step)
+            logger.logger.add_scalar('l_flow' , l_flow, global_step=global_train_step)
         torch.cuda.empty_cache() 
     
     accs = np.zeros_like(thresholds)
-
-    if epoch % 2 == 0:
+    """
+    if epoch % 10 == 0:
         model.eval()
         test_epoch_loss = 0
         epoch_anomaly_score = 0
         for i, (x, y) in enumerate(test_dataloader):
-            if i > 25:
+            if i > 10:
                 break
             x = x.to(device)
+            y = y.to(device)
             x_prim, log_prob, logdet_jac = model(x)
 
             loss = loss_function(x, y, log_prob.mean(), logdet_jac.mean(), alpha = 1/2,ssim = False)
@@ -88,7 +96,7 @@ for epoch in range(epochs):
             accs += acc
             
             print(f"Test: epoch {epoch}, iteration: {global_test_step} train loss = {loss}, anomaly score= {anomaly_score}, y = {y} accs = {accs/i}")
-            
+             
             if global_test_step % log_frequency == 0:
                 residual = x - x_prim
                 logger.log_all(global_test_step, loss.item() , anomaly_score.item(), x.detach(), x_prim.detach(), residual, mode = 'test')
@@ -97,6 +105,6 @@ for epoch in range(epochs):
             
         print(f"Test: epoch {epoch}, test loss = {test_epoch_loss/len(test_dataset)},"
               f" score  = {epoch_anomaly_score/len(test_dataset)}")
-    print(f"Train: epoch {epoch}, test loss = {epoch_loss/len(dataset)}")
+    print(f"Train: epoch {epoch}, test loss = {epoch_loss/len(dataset)}")"""
     torch.save(model.state_dict(), PATH)
             

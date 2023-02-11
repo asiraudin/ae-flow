@@ -4,6 +4,7 @@ from torch.distributions import Normal, Independent
 from torchvision.models import wide_resnet50_2 as wide_resnet, Wide_ResNet50_2_Weights
 from FrEIA.framework import SequenceINN
 from FrEIA.modules import AllInOneBlock
+import numpy as np
 
 
 class Encoder(nn.Module):
@@ -124,5 +125,8 @@ class Flow(nn.Module):
         :return: torch.tensor, float
         """
         z, jac = self.inn(x, rev=rev)
-        logprob_z = self.prior.log_prob(z.flatten(start_dim=1))
+        #logprob_z = self.prior.log_prob(z.flatten(start_dim=1))
+        
+        logprob_z = self.prior.log_prob(z.flatten(start_dim=1)) / (np.log(2) *262144)
+
         return z, logprob_z, jac

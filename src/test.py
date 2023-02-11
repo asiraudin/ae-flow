@@ -9,6 +9,7 @@ from models import AEFlow
 from torchmetrics.functional import structural_similarity_index_measure as ssim
 from utils import plotBatch, loss_function, compute_accuracies, CustomLogger
 from datetime import datetime
+from tqdm import tqdm
 
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -37,7 +38,7 @@ log_frequency = 10
 logger = CustomLogger(root + '/runs/' + model_name + '/' + datetime.now().strftime("%Y%m%d-%H%M%S"))
 
 thresholds = np.array([0.0001, 0.001,0.01,0.1, 0.2, 0.3])
-PATH = "/home/manuel/ae-flow/src/data/chest_xray/trained-model.pch"
+PATH = "/home/manuel/ae-flow/src/data/chest_xray/trained-model-rev.pch"
 
 model.load_state_dict(torch.load(PATH))
 
@@ -55,11 +56,12 @@ for i, (x, y) in enumerate(test_dataloader):
     y = y.to(device)
     x_prim, log_prob, logdet_jac = model(x)
 
-    loss = loss_function(x, y, log_prob.mean(), logdet_jac.mean(), alpha = 1/2,SSIM = False)
+    loss = loss_function(x, x_prim, log_prob.mean(), logdet_jac.mean(), alpha = 1/2,ssim = False)
 
 
-    anomaly_score = beta * (-torch.exp(log_prob.detach()).mean()) + (1 - beta) * - ssim(x.detach(), x_prim.detach(), reduction='sum')
+    anomaly_score = beta * (-torch.exp(log_prob/ (np.log(2) *262144)).mean()) + (1 - beta) * - ssim(x.detach(), x_prim.detach(), reduction='sum')
     epoch_anomaly_score += anomaly_score
+    print(f'y = {y} anomaly_score = {anomaly_score}')
     if y == 1:
         scores1 += anomaly_score
         y1  +=1
@@ -72,6 +74,6 @@ for i, (x, y) in enumerate(test_dataloader):
     
     torch.cuda.empty_cache()
 
-print(f'scores1 : {scores1/y1}')
+print(f'scores1 : {scores1/y1} y1 = {y1}')
 
-print(f'scores0 : {scores0/y0}')
+print(f'scores0 : {scores0/y0} y0 = {y0}')
