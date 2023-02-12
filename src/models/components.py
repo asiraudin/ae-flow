@@ -127,6 +127,6 @@ class Flow(nn.Module):
         z, jac = self.inn(x, rev=rev)
         #logprob_z = self.prior.log_prob(z.flatten(start_dim=1))
         
-        logprob_z = self.prior.log_prob(z.flatten(start_dim=1)) / (np.log(2) *262144)
+        logprob_z = self.prior.log_prob(z.flatten(start_dim=1))
 
         return z, logprob_z, jac

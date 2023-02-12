@@ -19,7 +19,7 @@ root = '/home/manuel/ae-flow/src/data/chest_xray'
 root = '/Vrac/chest_xray'
 
 #root = "./data/chest_xray"
-batch_size = 36
+batch_size = 12
 epochs = 100
 
 dataset = AEFlowDataset(root=root, train=True,
@@ -29,8 +29,8 @@ test_dataset = AEFlowDataset(root=root, train=False,
 dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=True)
 
-model_name = 'fast_flow'
-#model_name = 'res_net'
+#model_name = 'fast_flow'
+model_name = 'res_net'
 model = AEFlow(model_name, device)
 optimizer = torch.optim.Adam(model.parameters())
 alpha = 0.5
@@ -67,7 +67,7 @@ for epoch in range(epochs):
         loss.backward()
         optimizer.step()
         global_train_step += 1
-        anomaly_score = beta * (-torch.exp(log_prob.mean()))/ (np.log(2) *262144) + (1 - beta) * - ssim(x.detach(), x_prim.detach(), reduction='sum')
+        anomaly_score = beta * (-torch.exp(log_prob).mean())/ (np.log(2) *262144) + (1 - beta) * - ssim(x.detach(), x_prim.detach(), reduction='sum')
         epoch_anomaly += anomaly_score.item()
         
         #print(f"Train: epoch {epoch}, iteration: {global_train_step}, anomaly_score : {anomaly_score.item()} train loss = {loss.item()},")
@@ -81,7 +81,7 @@ for epoch in range(epochs):
         torch.cuda.empty_cache() 
     print(f"Train: epoch {epoch}, anomaly_score : {epoch_anomaly/j} train loss = {epoch_loss/j},")
     
-    if epoch+1 % 10 == 0:
+    if (epoch+1) % 5 == 0:
         model.eval()
         test_epoch_loss = 0
         epoch_anomaly_score = 0
@@ -95,7 +95,7 @@ for epoch in range(epochs):
                 y = y.to(device)
                 x_prim, log_prob, logdet_jac = model(x)
 
-                anomaly_score = beta * (-torch.exp(log_prob.mean()/ (np.log(2) *262144))) + (1 - beta) * - ssim(x.detach(), x_prim.detach(), reduction='sum')
+                anomaly_score = beta * (-torch.exp(log_prob).mean()/ (np.log(2) *262144))+ (1 - beta) * - ssim(x.detach(), x_prim.detach(), reduction='sum')
                 if y == 1:
                     scores1 += anomaly_score.item()
                     y1  +=1
