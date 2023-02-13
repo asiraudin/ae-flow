@@ -8,7 +8,7 @@ Article : https://openreview.net/forum?id=9OmCr1q54Z
 
 ## Utilisation
 Les scripts de train et test sont dans le dossier src
-- python3 train <submodel-name> <epochs> <model-path> <dataset-path>
+- python3 train [--submodel-name] [--epochs] [--model-path] [--dataset-path]
     - <--submodel-name> "fast-flow" ou "res-net", default "fast-flow"
     - <--epochs> int, default 100
     - <--dataset-path> filepath to the data, default workdir/data/chest_xray.pch
@@ -18,7 +18,7 @@ exemple :
 - python train.py
 - python train.py --submodel_name res-net --epochs 20 --model_path ~/model-res-net.pch --dataset_path ~/data/chest_xray
 
-- python3 test <submodel-name> <model-path> <dataset-path>
+- python3 test [--submodel-name] [--model-path] [--dataset-path]
     - <--submodel-name> "fast-flow" ou "res-net", default "fast-flow" (has to correspond to the trained model)
     - <--dataset-path> filepath to the data, default workdir/data/chest_xray.pch
     - <--model-path> filepath to save the trained model (saved after each epoch), default workdir/trained-model.pch
