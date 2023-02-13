@@ -14,17 +14,17 @@ Les scripts de train et test sont dans le dossier src
     - <--dataset-path> filepath to the data, default workdir/data/chest_xray.pch
     - <--model-path> filepath to save the trained model (saved after each epoch), default workdir/trained-model.pch
 
-exemple : 
-- python train.py
-- python train.py --submodel_name res-net --epochs 20 --model_path ~/model-res-net.pch --dataset_path ~/data/chest_xray
+- exemple : 
+    - python train.py
+    - python train.py --submodel_name res-net --epochs 20 --model_path ~/model-res-net.pch --dataset_path ~/data/chest_xray
 
 - python3 test [--submodel-name] [--model-path] [--dataset-path]
     - <--submodel-name> "fast-flow" ou "res-net", default "fast-flow" (has to correspond to the trained model)
     - <--dataset-path> filepath to the data, default workdir/data/chest_xray.pch
     - <--model-path> filepath to save the trained model (saved after each epoch), default workdir/trained-model.pch
-exemple : 
-- python test.py
-- python test.py --submodel_name res-net --model_path ~/model-res-net.pch --dataset_path ~/data/chest_xray
+- exemple : 
+    - python test.py
+    - python test.py --submodel_name res-net --model_path ~/model-res-net.pch --dataset_path ~/data/chest_xray
 
 ## Données
 
